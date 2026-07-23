@@ -51,18 +51,6 @@ class PlusesPorDia:
     jornada_fraccionada: float = 11.22  # €/día si se trabaja en 2 tramos horarios
 
 
-# --- Pluses fijos mensuales ------------------------------------------------
-
-@dataclass
-class PlusesMensuales:
-    jornada_irregular: float = 140.72   # €/mes, incompatible con turnicidad y FTP
-    turnicidad_2_turnos: float = 81.19
-    turnicidad_3_turnos: float = 108.26
-    turnicidad_4_turnos: float = 124.49
-    turnicidad_5_o_mas: float = 140.72
-    ftp_max: float = 97.42               # máximo, a 90% de jornada; se prorratea
-
-
 @dataclass
 class Convenio:
     jornada_anual_horas: int = JORNADA_ANUAL_HORAS
@@ -70,7 +58,6 @@ class Convenio:
     precio_hora_manual: float = None  # si se indica, tiene prioridad sobre el cálculo anual
     horas: PlusesPorHora = field(default_factory=PlusesPorHora)
     dias: PlusesPorDia = field(default_factory=PlusesPorDia)
-    mensuales: PlusesMensuales = field(default_factory=PlusesMensuales)
 
     @property
     def precio_hora_ordinaria(self) -> float:

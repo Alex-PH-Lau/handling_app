@@ -103,9 +103,6 @@ class DiaTrabajo:
     def tiene_manutencion(self) -> bool:
         return any(t.cubre_manutencion() for t in self._turnos_horario())
 
-    def horarios_distintos(self):
-        return set(self.turnos)
-
 
 @dataclass
 class DesgloseMensual:
@@ -119,7 +116,6 @@ class DesgloseMensual:
     plus_manutencion: float = 0.0
     plus_madrugue: float = 0.0
     plus_jornada_fraccionada: float = 0.0
-    plus_turnicidad: float = 0.0
     horas_totales: float = 0.0
     dias_trabajados: int = 0
 
@@ -139,8 +135,7 @@ class DesgloseMensual:
             + self.plus_transporte
             + self.plus_manutencion
             + self.plus_madrugue
-            + self.plus_jornada_fraccionada
-            + self.plus_turnicidad,
+            + self.plus_jornada_fraccionada,
             2,
         )
 
@@ -150,20 +145,17 @@ class DesgloseMensual:
         return round(self.salario_base + self.total_pluses, 2)
 
 
-def calcular_mes(dias: List[DiaTrabajo], convenio: Convenio,
-                  aplicar_turnicidad: bool = True) -> DesgloseMensual:
+def calcular_mes(dias: List[DiaTrabajo], convenio: Convenio) -> DesgloseMensual:
     d = DesgloseMensual()
     precio_hora = convenio.precio_hora_ordinaria
 
     dias_trabajados = 0
-    horarios_distintos_mes = set()
 
     for dia in dias:
         horas = dia.horas_trabajadas()
         if horas <= 0 and dia.horas_extra <= 0:
             continue
         dias_trabajados += 1
-        horarios_distintos_mes |= dia.horarios_distintos()
 
         d.horas_totales += horas + dia.horas_extra
 
@@ -200,23 +192,10 @@ def calcular_mes(dias: List[DiaTrabajo], convenio: Convenio,
 
     d.dias_trabajados = dias_trabajados
 
-    # Turnicidad: según nº de horarios (inicio, fin) DISTINTOS realizados en el mes
-    if aplicar_turnicidad:
-        n = len(horarios_distintos_mes)
-        m = convenio.mensuales
-        if n >= 5:
-            d.plus_turnicidad = m.turnicidad_5_o_mas
-        elif n == 4:
-            d.plus_turnicidad = m.turnicidad_4_turnos
-        elif n == 3:
-            d.plus_turnicidad = m.turnicidad_3_turnos
-        elif n == 2:
-            d.plus_turnicidad = m.turnicidad_2_turnos
-
     for campo in ("salario_base", "plus_nocturnidad", "plus_festivo",
                   "plus_domingo", "horas_extra", "horas_perentorias",
                   "plus_transporte", "plus_manutencion", "plus_madrugue",
-                  "plus_jornada_fraccionada", "plus_turnicidad"):
+                  "plus_jornada_fraccionada"):
         setattr(d, campo, round(getattr(d, campo), 2))
 
     return d

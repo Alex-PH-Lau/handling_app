@@ -24,7 +24,7 @@ import hashlib
 import json
 import secrets
 import time
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 
 from calculo import DesgloseMensual
@@ -177,7 +177,14 @@ def cargar_datos(usuario: str):
         info["turnos"] = [tuple(t) for t in info.get("turnos", [])]
 
     historico_raw = datos_usuario.get("historico", {})
-    historico = {mes: DesgloseMensual(**valores) for mes, valores in historico_raw.items()}
+    # Se filtran campos que ya no existen en DesgloseMensual (p.ej. si vienen
+    # de una versión anterior de la app con conceptos que se han eliminado,
+    # como el antiguo "plus_turnicidad"), para no romper al cargar datos viejos.
+    campos_validos = {f.name for f in fields(DesgloseMensual)}
+    historico = {
+        mes: DesgloseMensual(**{k: v for k, v in valores.items() if k in campos_validos})
+        for mes, valores in historico_raw.items()
+    }
 
     return dias_mes, historico
 

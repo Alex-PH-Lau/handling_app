@@ -232,8 +232,6 @@ with st.sidebar:
         "Jornada fraccionada (€/día)", value=convenio.dias.jornada_fraccionada
     )
 
-    aplicar_turnicidad = st.checkbox("Aplicar plus de turnicidad/flexibilidad", value=True)
-
 tab_nomina, tab_calendario = st.tabs(["💶 Nómina del mes", "📅 Calendario de descansos"])
 
 # ============================================================================
@@ -259,7 +257,7 @@ with tab_nomina:
 
     HOY = date.today()
     AÑOS_DISPONIBLES = list(range(HOY.year - 1, HOY.year + 3))
-    MINUTOS_DISPONIBLES = [0, 15, 30, 45]
+    MINUTOS_DISPONIBLES = list(range(0, 60, 1))
 
     def _reset_form_state():
         st.session_state.form_dia = HOY.day
@@ -511,7 +509,7 @@ with tab_nomina:
                     horas_extra=info["horas_extra"],
                 ))
 
-            resultado = calcular_mes(dias_trabajo, convenio, aplicar_turnicidad=aplicar_turnicidad)
+            resultado = calcular_mes(dias_trabajo, convenio)
             st.session_state["ultimo_resultado"] = resultado
 
             meses_detectados = {f"{d.fecha.year}-{d.fecha.month:02d}" for d in dias_trabajo}
@@ -550,7 +548,6 @@ with tab_nomina:
             "Plus manutención": resultado.plus_manutencion,
             "Plus madrugue": resultado.plus_madrugue,
             "Plus jornada fraccionada": resultado.plus_jornada_fraccionada,
-            "Plus turnicidad": resultado.plus_turnicidad,
         }
         df_desglose = pd.DataFrame(
             [{"Concepto": k, "Importe (€)": v} for k, v in desglose.items() if v]
