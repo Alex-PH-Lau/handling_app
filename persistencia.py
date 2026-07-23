@@ -197,3 +197,12 @@ def guardar_datos(usuario: str, dias_mes: dict, historico: dict):
     data["usuarios"][usuario]["dias_mes"] = dias_mes
     data["usuarios"][usuario]["historico"] = {mes: asdict(d) for mes, d in historico.items()}
     _escribir_archivo(data)
+
+
+def eliminar_usuario(usuario: str):
+    """Elimina por completo a un usuario (cuenta, contraseña, días e histórico).
+    Esta acción no se puede deshacer."""
+    data = _leer_archivo()
+    if usuario in data.get("usuarios", {}):
+        del data["usuarios"][usuario]
+        _escribir_archivo(data)

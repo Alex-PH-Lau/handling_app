@@ -16,6 +16,7 @@ from persistencia import (
     obtener_pregunta,
     verificar_respuesta,
     restablecer_password,
+    eliminar_usuario,
 )
 
 MESES_ES = [
@@ -48,6 +49,29 @@ if st.session_state.autenticado:
         st.session_state.usuario = ""
         st.session_state.autenticado = False
         st.rerun()
+
+    with st.expander("🗑️ Eliminar mi cuenta"):
+        st.warning(
+            "Esto borra tu cuenta, tu contraseña, tus días guardados y tu "
+            "histórico. **No se puede deshacer.**"
+        )
+        confirmar_pass = st.text_input(
+            "Escribe tu contraseña para confirmar", type="password", key="confirmar_borrado_pass"
+        )
+        if st.button("Eliminar mi cuenta definitivamente", type="primary"):
+            try:
+                password_ok = verificar_password(st.session_state.usuario, confirmar_pass)
+            except RuntimeError as e:
+                st.error(f"⚠️ {e}")
+                password_ok = None
+            if password_ok:
+                eliminar_usuario(st.session_state.usuario)
+                st.session_state.usuario = ""
+                st.session_state.autenticado = False
+                st.success("Cuenta eliminada.")
+                st.rerun()
+            elif password_ok is False:
+                st.error("Contraseña incorrecta. No se ha eliminado nada.")
 
 else:
     st.session_state.setdefault("modo_login", None)  # None | "login" | "nuevo"
