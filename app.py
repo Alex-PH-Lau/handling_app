@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -6,14 +7,29 @@ import streamlit as st
 from config import Convenio
 from calculo import DiaTrabajo, calcular_mes
 from calendario_turnos import html_calendario_mes
-from persistencia import cargar_datos, guardar_datos, listar_usuarios
+from persistencia import (
+    cargar_datos,
+    guardar_datos,
+    crear_usuario,
+    verificar_password,
+    usuario_existe,
+    obtener_pregunta,
+    verificar_respuesta,
+    restablecer_password,
+)
 
 MESES_ES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
-st.set_page_config(page_title="Calculadora de nómina - Handling", layout="wide")
+st.set_page_config(page_title="Nómina Handling", page_icon="✈️", layout="wide")
+
+# Si tienes un logo propio, guárdalo como "logo.png" en esta misma carpeta
+# y se mostrará automáticamente arriba a la izquierda.
+_LOGO_PATH = Path(__file__).parent / "logo.png"
+if _LOGO_PATH.exists():
+    st.logo(str(_LOGO_PATH))
 
 st.title("🧮 Calculadora de salario - Handling aeroportuario")
 st.caption(
@@ -22,25 +38,136 @@ st.caption(
     "`config.py` si tienes datos oficiales de Azul Handling."
 )
 
-usuarios_existentes = listar_usuarios()
 st.session_state.setdefault("usuario", "")
-col_usuario, _ = st.columns([2, 3])
-with col_usuario:
-    if usuarios_existentes:
-        opciones = ["(nuevo usuario)"] + usuarios_existentes
-        eleccion = st.selectbox("👤 ¿Quién eres?", opciones)
-        if eleccion == "(nuevo usuario)":
-            usuario = st.text_input("Escribe tu nombre", value=st.session_state["usuario"])
-        else:
-            usuario = eleccion
+st.session_state.setdefault("autenticado", False)
+
+if st.session_state.autenticado:
+    col_bienvenida, col_salir = st.columns([4, 1])
+    col_bienvenida.success(f"👤 Conectado como **{st.session_state.usuario}**")
+    if col_salir.button("🔒 Cambiar de usuario"):
+        st.session_state.usuario = ""
+        st.session_state.autenticado = False
+        st.rerun()
+
+else:
+    st.session_state.setdefault("modo_login", None)  # None | "login" | "nuevo"
+
+    if st.session_state.modo_login is None:
+        st.write("¿Qué quieres hacer?")
+        col_a, col_b, _ = st.columns([1, 1, 3])
+        if col_a.button("🔑 Iniciar sesión", type="primary"):
+            st.session_state.modo_login = "login"
+            st.rerun()
+        if col_b.button("🆕 Usuario nuevo"):
+            st.session_state.modo_login = "nuevo"
+            st.rerun()
+
     else:
-        usuario = st.text_input("👤 ¿Quién eres? (para guardar tus datos por separado)")
+        col_login, _ = st.columns([2, 3])
+        with col_login:
+            if st.button("⬅️ Volver"):
+                st.session_state.modo_login = None
+                st.rerun()
 
-st.session_state["usuario"] = usuario.strip()
+            PREGUNTAS_SEGURIDAD = [
+                "¿Cuál era el nombre de tu primera mascota?",
+                "¿En qué ciudad naciste?",
+                "¿Cuál es tu comida favorita?",
+                "¿Cómo se llamaba tu colegio?",
+                "¿Cuál es tu película favorita?",
+            ]
 
-if not st.session_state["usuario"]:
-    st.warning("Escribe tu nombre arriba para empezar (así tus datos no se mezclan con los de tus compañeros).")
+            if st.session_state.modo_login == "nuevo":
+                st.subheader("🆕 Crear cuenta nueva")
+                nombre_nuevo = st.text_input("Tu nombre", key="login_nombre_nuevo")
+                pass1 = st.text_input("Elige una contraseña", type="password", key="login_pass1")
+                pass2 = st.text_input("Repite la contraseña", type="password", key="login_pass2")
+                pregunta_elegida = st.selectbox(
+                    "Pregunta de seguridad (por si olvidas la contraseña)", PREGUNTAS_SEGURIDAD, key="login_pregunta"
+                )
+                respuesta_seguridad = st.text_input("Tu respuesta", key="login_respuesta")
+                if st.button("Crear usuario y entrar", type="primary"):
+                    nombre_nuevo = nombre_nuevo.strip()
+                    if not nombre_nuevo:
+                        st.error("Escribe tu nombre.")
+                    elif usuario_existe(nombre_nuevo):
+                        st.error("Ya existe alguien con ese nombre. Usa 'Iniciar sesión' en vez de crear una cuenta nueva.")
+                    elif not pass1:
+                        st.error("La contraseña no puede estar vacía.")
+                    elif pass1 != pass2:
+                        st.error("Las dos contraseñas no coinciden.")
+                    elif not respuesta_seguridad.strip():
+                        st.error("Escribe una respuesta a la pregunta de seguridad.")
+                    else:
+                        try:
+                            crear_usuario(nombre_nuevo, pass1, pregunta_elegida, respuesta_seguridad)
+                        except RuntimeError as e:
+                            st.error(f"⚠️ {e}")
+                        else:
+                            st.session_state.usuario = nombre_nuevo
+                            st.session_state.autenticado = True
+                            st.session_state.modo_login = None
+                            st.rerun()
+
+            else:  # modo_login == "login"
+                st.subheader("🔑 Iniciar sesión")
+                nombre_login = st.text_input("Tu nombre", key="login_nombre_existente")
+                password_intento = st.text_input(
+                    "Contraseña", type="password", key="login_password_intento"
+                )
+                if st.button("Entrar", type="primary"):
+                    nombre_login = nombre_login.strip()
+                    if not nombre_login or not usuario_existe(nombre_login):
+                        st.error("No existe ninguna cuenta con ese nombre. ¿Quizá quieres 'Usuario nuevo'?")
+                    else:
+                        try:
+                            password_ok = verificar_password(nombre_login, password_intento)
+                        except RuntimeError as e:
+                            st.error(f"⚠️ {e}")
+                            password_ok = None
+                        if password_ok:
+                            st.session_state.usuario = nombre_login
+                            st.session_state.autenticado = True
+                            st.session_state.modo_login = None
+                            st.rerun()
+                        elif password_ok is False:
+                            st.error("Contraseña incorrecta.")
+
+                with st.expander("¿Olvidaste tu contraseña?"):
+                    nombre_recuperar = st.text_input("Tu nombre", key="recuperar_nombre")
+                    if nombre_recuperar.strip():
+                        pregunta_usuario = obtener_pregunta(nombre_recuperar.strip())
+                        if not usuario_existe(nombre_recuperar.strip()):
+                            st.error("No existe ninguna cuenta con ese nombre.")
+                        elif not pregunta_usuario:
+                            st.info("Esta cuenta no tiene una pregunta de seguridad configurada.")
+                        else:
+                            st.write(f"**{pregunta_usuario}**")
+                            respuesta_intento = st.text_input("Tu respuesta", key="recuperar_respuesta")
+                            nueva_pass1 = st.text_input("Nueva contraseña", type="password", key="recuperar_pass1")
+                            nueva_pass2 = st.text_input(
+                                "Repite la nueva contraseña", type="password", key="recuperar_pass2"
+                            )
+                            if st.button("Restablecer contraseña"):
+                                if not verificar_respuesta(nombre_recuperar.strip(), respuesta_intento):
+                                    st.error("Respuesta incorrecta.")
+                                elif not nueva_pass1:
+                                    st.error("La nueva contraseña no puede estar vacía.")
+                                elif nueva_pass1 != nueva_pass2:
+                                    st.error("Las dos contraseñas no coinciden.")
+                                else:
+                                    try:
+                                        restablecer_password(nombre_recuperar.strip(), nueva_pass1)
+                                    except RuntimeError as e:
+                                        st.error(f"⚠️ {e}")
+                                    else:
+                                        st.success("Contraseña restablecida. Ya puedes entrar con la nueva contraseña arriba.")
+
+
+if not st.session_state.autenticado:
     st.stop()
+
+st.session_state["usuario"] = st.session_state.usuario
 
 # --- Barra lateral: configuración del convenio -----------------------------
 with st.sidebar:
@@ -90,8 +217,18 @@ tab_nomina, tab_calendario = st.tabs(["💶 Nómina del mes", "📅 Calendario d
 # ============================================================================
 with tab_nomina:
 
+    def _guardar_datos_seguro():
+        try:
+            guardar_datos(st.session_state["usuario"], st.session_state.dias_mes, st.session_state.historico)
+        except RuntimeError as e:
+            st.error(f"⚠️ No se pudo guardar: {e}")
+
     if st.session_state.get("_usuario_cargado") != st.session_state["usuario"]:
-        _dias_cargados, _historico_cargado = cargar_datos(st.session_state["usuario"])
+        try:
+            _dias_cargados, _historico_cargado = cargar_datos(st.session_state["usuario"])
+        except RuntimeError as e:
+            st.error(f"⚠️ No se pudieron cargar tus datos guardados: {e}")
+            _dias_cargados, _historico_cargado = {}, {}
         st.session_state.dias_mes = _dias_cargados
         st.session_state.historico = _historico_cargado
         st.session_state["_usuario_cargado"] = st.session_state["usuario"]
@@ -279,7 +416,7 @@ with tab_nomina:
                     "horas_extra": st.session_state.form_extra,
                 }
                 st.success(f"Día {fecha_str} guardado.")
-                guardar_datos(st.session_state['usuario'], st.session_state.dias_mes, st.session_state.historico)
+                _guardar_datos_seguro()
                 st.session_state.pending_action = "reset"
                 st.rerun()
 
@@ -319,13 +456,13 @@ with tab_nomina:
             with col3:
                 if st.button("🗑️ Eliminar", key=f"eliminar_{fecha_str}"):
                     st.session_state.dias_mes.pop(fecha_str)
-                    guardar_datos(st.session_state['usuario'], st.session_state.dias_mes, st.session_state.historico)
+                    _guardar_datos_seguro()
                     st.rerun()
             st.divider()
 
         if st.button("🧹 Vaciar todos los días de este mes"):
             st.session_state.dias_mes = {}
-            guardar_datos(st.session_state['usuario'], st.session_state.dias_mes, st.session_state.historico)
+            _guardar_datos_seguro()
             st.rerun()
 
     st.divider()
@@ -400,7 +537,7 @@ with tab_nomina:
         if mes_clave:
             if st.button(f"📌 Guardar {mes_clave} en el histórico"):
                 st.session_state.historico[mes_clave] = resultado
-                guardar_datos(st.session_state['usuario'], st.session_state.dias_mes, st.session_state.historico)
+                _guardar_datos_seguro()
                 st.success(f"Guardado el mes {mes_clave} en el histórico.")
 
     st.divider()
@@ -435,7 +572,7 @@ with tab_nomina:
 
         if st.button("🗑️ Borrar histórico"):
             st.session_state.historico = {}
-            guardar_datos(st.session_state['usuario'], st.session_state.dias_mes, st.session_state.historico)
+            _guardar_datos_seguro()
             st.rerun()
 
 # ============================================================================

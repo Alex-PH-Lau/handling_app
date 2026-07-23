@@ -58,15 +58,22 @@ navegador.
 ## ⚠️ Importante: varias personas usando la misma app compartida
 
 Todos vuestros compañeros van a compartir el MISMO despliegue (la misma
-URL). Para que los datos de cada persona no se mezclen:
+URL). Para que los datos de cada persona no se mezclen ni sean visibles
+para los demás:
 
-- Al abrir la app, cada persona debe **escribir su nombre** (o elegirlo
-  de la lista si ya ha entrado antes) en el desplegable de arriba de todo.
-- Los datos de cada persona (días introducidos, histórico) se guardan
-  por separado según ese nombre.
-- **No hay contraseña ni seguridad real**: cualquiera podría elegir el
-  nombre de otro compañero y ver/editar sus datos. Esto es aceptable
-  para un uso informal entre compañeros de confianza, pero no lo uses
+- La primera vez, cada persona elige "(nuevo usuario)", escribe su
+  nombre, una contraseña, y elige/responde una pregunta de seguridad
+  (por si la olvida).
+- Las siguientes veces, elige su nombre del desplegable e introduce su
+  contraseña para entrar y recuperar sus datos.
+- Si olvida la contraseña, en el desplegable "¿Olvidaste tu
+  contraseña?" puede responder su pregunta de seguridad y poner una
+  nueva contraseña, sin perder ninguno de sus datos guardados.
+- La contraseña y la respuesta de seguridad NO se guardan en texto
+  plano (se guarda un hash SHA-256 con una sal aleatoria cada uno),
+  pero **no es un sistema de seguridad robusto**: no hay límite de
+  intentos, ni cifrado del archivo de datos en sí. Es suficiente para
+  privacidad informal entre compañeros de confianza, pero no lo uses
   para nada sensible.
 
 ## Actualizar la app tras cambios
@@ -130,6 +137,23 @@ El patrón de Azul Handling es cíclico cada 9 días: 3 días de mañana, 3
 de tarde, 3 de descanso. Solo necesitas indicar una fecha que sepas que
 es el PRIMER día de un bloque de descanso, y la app calcula el resto
 (pasado y futuro) automáticamente.
+
+## 🎨 Personalizar el estilo (colores, logo, tipografía)
+
+- **Colores**: edita `.streamlit/config.toml`. Los 4 valores (`primaryColor`,
+  `backgroundColor`, `secondaryBackgroundColor`, `textColor`) son códigos
+  hexadecimales — puedes sacarlos de cualquier "color picker" online.
+  Streamlit Cloud detecta este archivo automáticamente al desplegar.
+- **Logo**: guarda tu imagen como `logo.png` en esta misma carpeta (junto
+  a `app.py`) y aparecerá automáticamente arriba a la izquierda — no hay
+  que tocar código. Si no subes ninguna, la app funciona igual sin logo.
+- **Icono de la pestaña / título**: en `app.py`, la línea
+  `st.set_page_config(page_title=..., page_icon=...)` — puedes poner
+  cualquier emoji como icono, o la ruta a una imagen.
+- **Tipografía/CSS más específico**: se puede inyectar CSS personalizado
+  con `st.markdown("<style>...</style>", unsafe_allow_html=True)` en
+  cualquier punto de `app.py`. Útil para una fuente concreta de Google
+  Fonts, sombras, bordes redondeados, etc.
 
 ## Próximas mejoras posibles
 

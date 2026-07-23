@@ -1,0 +1,11 @@
+[theme]
+# Paleta azul, a juego con el mundo aeroportuario / "Azul Handling".
+# Cambia estos valores por los tuyos cuando quieras: son códigos de color
+# en formato hexadecimal (puedes sacar cualquier código con un selector
+# de color online, buscando "color picker hex").
+
+primaryColor = "#0F52BA"              # azul intenso: botones, checkboxes, acentos
+backgroundColor = "#FFFFFF"           # fondo principal (blanco)
+secondaryBackgroundColor = "#EAF1FB"  # fondo de la barra lateral y tarjetas (azul muy claro)
+textColor = "#1A2B4C"                 # azul marino oscuro, para el texto
+font = "sans serif"
